@@ -179,13 +179,21 @@ int Adafruit_MLX90640::convertHalfFrame(uint16_t *mlx90640Frame, float * framebu
  */
 int Adafruit_MLX90640::getHalfFrame(float *framebuf) {
   static uint16_t mlx90640Frame[834];
-  static float oldframebuf[768];
+  // static float oldframebuf[768];
 
-  MLX90640_GetFrameData(0, mlx90640Frame);
+  MLX90640_GetFrameData(0x33, mlx90640Frame);
   convertHalfFrame(mlx90640Frame,framebuf);
 
   return 0;
 
+}
+
+int Adafruit_MLX90640::getHalfImage(float *framebuf) {
+  static uint16_t mlx90640Frame[834];
+  MLX90640_GetFrameData(0x33, mlx90640Frame);
+  // MLX90640_GetFrameData(0x33, mlx90640Frame);
+  MLX90640_GetImage(mlx90640Frame,&_params,framebuf);
+  return 0;
 }
 /*!
  *    @brief  Read 2 pages, calculate temperatures and place into framebuf
