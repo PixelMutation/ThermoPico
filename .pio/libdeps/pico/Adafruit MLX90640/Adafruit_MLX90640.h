@@ -75,9 +75,10 @@ public:
   int getHalfFrame(float * framebuf);
 
   int convertHalfFrame(uint16_t *frameData, float * framebuf);
+  int getHalfImage(float *framebuf); // get image without absolute temperatures
 
   uint16_t serialNumber[3]; ///< Unique serial number read from device
-  int MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t *frameData);
+  
 private:
   int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress,
                        uint16_t nMemAddressRead, uint16_t *data);
@@ -88,12 +89,13 @@ private:
   paramsMLX90640 _params;
 
   int MLX90640_DumpEE(uint8_t slaveAddr, uint16_t *eeData);
-
+int MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t *frameData);
+  void MLX90640_GetImage(uint16_t *frameData, const paramsMLX90640 *params,
+                         float *result);
   int MLX90640_ExtractParameters(uint16_t *eeData, paramsMLX90640 *mlx90640);
   float MLX90640_GetVdd(uint16_t *frameData, const paramsMLX90640 *params);
   float MLX90640_GetTa(uint16_t *frameData, const paramsMLX90640 *params);
-  void MLX90640_GetImage(uint16_t *frameData, const paramsMLX90640 *params,
-                         float *result);
+  
   void MLX90640_CalculateTo(uint16_t *frameData, const paramsMLX90640 *params,
                             float emissivity, float tr, float *result);
   int MLX90640_SetResolution(uint8_t slaveAddr, uint8_t resolution);
