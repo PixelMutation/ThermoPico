@@ -56,11 +56,12 @@ int Adafruit_MLX90640::MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t *frameD
         error = MLX90640_I2CRead(slaveAddr, 0x8000, 1, &statusRegister);
         if(error != 0)
         {
+            Serial.println("i2c read fail");
             return error;
         }    
         dataReady = statusRegister & 0x0008;
 #ifdef MLX90640_DEBUG
-	Serial.printf("ready status: 0x%x\n", dataReady);
+	// Serial.printf("ready status: 0x%x\n", dataReady);
 #endif
     }
         
@@ -69,6 +70,7 @@ int Adafruit_MLX90640::MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t *frameD
         error = MLX90640_I2CWrite(slaveAddr, 0x8000, 0x0030);
         if(error == -1)
         {
+            Serial.println("i2c write fail");
             return error;
         }
 #ifdef MLX90640_DEBUG
@@ -77,19 +79,22 @@ int Adafruit_MLX90640::MLX90640_GetFrameData(uint8_t slaveAddr, uint16_t *frameD
         error = MLX90640_I2CRead(slaveAddr, 0x0400, 832, frameData); 
         if(error != 0)
         {
+            Serial.println("i2c read fail");
             return error;
         }
                    
         error = MLX90640_I2CRead(slaveAddr, 0x8000, 1, &statusRegister);
         if(error != 0)
         {
+            Serial.println("i2c read fail");
             return error;
         }    
         dataReady = statusRegister & 0x0008;
+        dataReady=0; //! dodgey hack??
 #ifdef MLX90640_DEBUG
 	Serial.printf("frame ready: 0x%x\n", dataReady);
 #endif
-        cnt = cnt + 1;
+        // cnt = cnt + 1;
     }
     
     if(cnt > 4)
