@@ -16,7 +16,8 @@ Adafruit_I2CDevice::Adafruit_I2CDevice(uint8_t addr, TwoWire *theWire) {
 #elif defined(ESP32)
   _maxBufferSize = I2C_BUFFER_LENGTH;
 #else
-  _maxBufferSize = 32;
+  // _maxBufferSize = 32;
+  _maxBufferSize = 255;
 #endif
 }
 
