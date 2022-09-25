@@ -1,6 +1,7 @@
 #include <Ewma.h>
 #include <EwmaT.h>
 
+
 #include <Adafruit_MLX90640.h>
 
 #include <Arduino_DataBus.h>
@@ -19,21 +20,15 @@
 #include "colour.h"
 #include "configuration.h"
 
-	// For the breakout board, you can use any 2 or 3 pins.
-	// These pins will also work for the 1.8" TFT shield.
-	#define TFT_CS				1
-	#define TFT_DC				 4
-	#define BACKLIGHT				5
 
-// OPTION 1 (recommended) is to use the HARDWARE SPI pins, which are unique
-// to each board and not reassignable. For Arduino Uno: MOSI = pin 11 and
-// SCLK = pin 13. This is the fastest mode of operation and is required if
-// using the breakout board's microSD card.
+#define TFT_CS				1
+#define TFT_DC				 4
+#define BACKLIGHT				5
+
 
 #define TFT_MOSI 3	// Data out
 #define TFT_SCLK 2	// Clock out
 
-// Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 Arduino_DataBus *bus;
 Arduino_GFX *gfx;
 
@@ -66,8 +61,12 @@ void camLoop() {
 	static float floatFrame[32*24]; // contains the image in float format
 	static uint16_t rawFrame[32*24];
 	// read image and load into float buffer
+
 	// mlx->getFrame(floatFrame);
+	// Serial.print("Get half frame begin");
 	mlx->getHalfFrame(floatFrame);
+	// mlx->getHalfImage(floatFrame);
+
 	// mlx->MLX90640_GetFrameData(0x33,rawFrame);
 
 	// convert image to int to make processing faster
@@ -97,7 +96,7 @@ void camInit() {
 	mlx->begin(0x33, &Wire1);
 	Wire1.setClock(2000000);
 	mlx->setMode(MLX90640_CHESS);
-	mlx->setResolution(MLX90640_ADC_18BIT);
+	mlx->setResolution(MLX90640_ADC_19BIT);
 	mlx->setRefreshRate(REFRESH);
 }
 
@@ -132,17 +131,17 @@ void screenInit() {
 
 	paletteSettings config;
 
-	config.hsvMin[HUE]=330;
-	config.hsvMin[SAT]=1;
+	config.hsvMin[HUE]=0;
+	config.hsvMin[SAT]=0.5;
 	config.hsvMin[VAL]=1;
 
-	config.hsvMax[HUE]=60;
+	config.hsvMax[HUE]=360;
 	config.hsvMax[SAT]=1;
 	config.hsvMax[VAL]=1;
 
-	config.hsvInvert[HUE]=true;
+	config.hsvInvert[HUE]=false;
 
-	config.minTemp=28;
+	config.minTemp=15;
 	config.maxTemp=37;
 
 	generatePalette(colorPalette,config);
@@ -164,6 +163,7 @@ void screenInit() {
 
 void screenLoop() {
 	screenReady=false;
+	
 	static uint8_t frameCount=0;
 	static long startTime=0;
 	static float fps=0;
@@ -174,6 +174,14 @@ void screenLoop() {
 
 	static frameContainer bufferOut; // the most recent frame taken from the queue
 	queue_try_remove(&frameQueue,&bufferOut); // read latest image from FIFO
+
+	if (millis()-startTime>1000) {
+		startTime=millis();
+		fps=(float)frameCount/1;
+		frameCount=0;
+	}
+	frameCount++;
+	Serial.print("fps=");Serial.println(fps);
 
 	int colorTemp;
 	int32_t max=-TEMP_OFFSET*TEMP_MULTIPLIER;
@@ -197,8 +205,12 @@ void screenLoop() {
 	for (uint8_t h=0; h<24; h++) {
 		for (uint8_t w=0; w<32; w++) {
 			int32_t temp = bufferOut.frame[24*32-(h*32 + w)];
-			temp = (alpha * (temp) + (alphaScale - alpha) * prevFrame[h*32 + w]) / alphaScale;
-			prevFrame[h*32 + w]=temp;
+			// use floor division to 'round'  to resolution value, reduces noise from flickering
+			temp/=RESOLUTION;
+			temp*=RESOLUTION;
+			temp = (alpha * (temp) + (alphaScale - alpha) * prevFrame[h*32 + w]) / alphaScale; // apply EWMA filter
+			prevFrame[h*32 + w]=temp; // update previous value for next use of EWMA filter
+			
 			// temp = filter[h*32 + w]->filter(temp);
 			bitmap[h*32 + w] = tempToColor(temp,colorPalette);
 			// bitmap[h*32 + w] =bufferOut.frame[h*32 + w]/TEMP_MULTIPLIER;
@@ -283,12 +295,7 @@ void screenLoop() {
 
 	// gfx->draw16bitRGBBitmap(0,0,bitmap,32,24);
 
-	if (millis()-startTime>1000) {
-		startTime=millis();
-		fps=(float)frameCount/1;
-		frameCount=0;
-	}
-	frameCount++;
+	
 	gfx->setCursor(0,0);
 	gfx->print(fps);gfx->print("fps");
 
@@ -388,7 +395,7 @@ void setup() {
 	// spinlock_count = spin_lock_init(spinlock_num_count) ;
 
 	// this threadsafe FIFO passes images between cores. there are 3 available spaces to allow the cores to be out of sync.
-	queue_init(&frameQueue, sizeof(frameContainer), 3);
+	queue_init(&frameQueue, sizeof(frameContainer), 1);
 
 	// multicore_launch_core1(screen);
 	// camera();
@@ -414,7 +421,7 @@ long prevLooptime1=0;
 uint mintemp=34;
 uint maxtemp=35;
 void loop() {
-	if (millis()-prevLooptime>40) {
+	if (millis()-prevLooptime>15) {
 		prevLooptime=millis();
 		// the screen updates faster than the camera, so we manually restart that core each loop. may be better to use interrupts!
 	// if (millis()-prevLooptime1>1000) {
@@ -428,9 +435,9 @@ void loop() {
 		multicore_launch_core1(screenLoop);
 		// multicore_launch_core1(camLoop);
 		// screenLoop();
-
+		camLoop();
 	}
-	camLoop();
+	
 
 
 }
